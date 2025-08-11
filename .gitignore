@@ -22,5 +22,6 @@ build/
 
 # Project artifacts
 .chroma/
+OAI_CONFIG_LIST
 
 

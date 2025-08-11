@@ -25,6 +25,8 @@ class ChromaRAG:
         self.col = self.client.get_or_create_collection(collection, embedding_function=ef)
 
     def add_texts(self, texts: List[str]) -> int:
+        if not texts:
+            return 0
         ids = [f"doc-{self.col.count()}-{i}" for i in range(len(texts))]
         self.col.add(documents=texts, ids=ids)
         return len(texts)
@@ -43,8 +45,8 @@ class ChromaRAG:
         question = question.strip()
         if not question:
             return None
-        res = self.col.query(query_texts=[question], n_results=1)
         try:
+            res = self.col.query(query_texts=[question], n_results=1)
             return res["documents"][0][0]
         except Exception:
             return None
