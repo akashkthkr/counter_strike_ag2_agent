@@ -21,7 +21,16 @@ def _load_config_list():
             return json.loads(cfg)
         except (json.JSONDecodeError, OSError, ValueError):
             pass
-    # Fallback: build a GPT-5 Responses API entry from OPENAI_API_KEY
+    # Anthropic fallback if ANTHROPIC_API_KEY is set
+    anth_key = os.environ.get("ANTHROPIC_API_KEY")
+    if anth_key:
+        return [{
+            "model": "claude-3-5-sonnet-20240620",
+            "api_key": anth_key,
+            "api_type": "anthropic",
+            "max_tokens": 1024,
+        }]
+    # OpenAI fallback if OPENAI_API_KEY is set
     key = os.environ.get("OPENAI_API_KEY")
     if key:
         return [{

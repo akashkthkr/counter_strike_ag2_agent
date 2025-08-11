@@ -15,14 +15,35 @@ class RagTerroristHelper:
     @staticmethod
     def build_facts(state: GameState) -> List[str]:
         facts: List[str] = []
+        
+        # Round and score info
+        facts.append(f"Round {state.round}/{state.max_rounds}")
+        t_score = state.round_scores.get("Terrorists", 0)
+        ct_score = state.round_scores.get("Counter-Terrorists", 0)
+        facts.append(f"Score: T-{t_score} CT-{ct_score}")
+        
+        # Bomb status
         if state.bomb_planted:
-            facts.append(f"Bomb is planted at {state.bomb_site}.")
+            facts.append(f"💣 BOMB PLANTED at {state.bomb_site}!")
         else:
-            facts.append("Bomb is not planted.")
-        # Health snapshot
+            facts.append("💣 Bomb not planted.")
+            
+        # Detailed health status
         for team, members in state.player_health.items():
-            alive = [m for m, hp in members.items() if hp > 0]
-            facts.append(f"{team} alive: {', '.join(alive) if alive else 'none'}.")
+            alive = [f"{m}({hp}HP)" for m, hp in members.items() if hp > 0]
+            dead = [m for m, hp in members.items() if hp <= 0]
+            team_short = "T" if team == "Terrorists" else "CT"
+            
+            if alive:
+                facts.append(f"{team_short} alive: {', '.join(alive)}")
+            if dead:
+                facts.append(f"{team_short} dead: {', '.join(dead)}")
+                
+        # Recent actions context
+        if hasattr(state, 'last_action_results') and state.last_action_results:
+            recent = state.last_action_results[-2:]  # Last 2 actions for context
+            facts.append(f"Recent actions: {' | '.join(recent)}")
+            
         return facts
 
     @staticmethod
