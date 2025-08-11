@@ -1,0 +1,4 @@
+../ag2/dist/ag2-0.9.7-py3-none-any.whl
+pyautogen>=0.2.35
+pygame>=2.5.2
+chromadb>=0.5.0
