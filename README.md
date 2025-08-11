@@ -73,6 +73,7 @@ UI basics
 - Click a panel’s input box to focus it
 - Type a command and press Enter
 - Each Terrorist panel shares the same round and state; teammate actions are broadcast to all T panels
+- Copy/paste is supported in the input box (Cmd/Ctrl+C/V/X). Long chat lines wrap automatically.
 
 ## 4) How to play — Commands
 

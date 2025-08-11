@@ -14,6 +14,11 @@ from counter_strike_ag2_agent.rag_vector import ChromaRAG
 
 def run_multi(num_instances: int = 3, show_ct: bool = True) -> None:
     pygame.init()
+    # Initialize clipboard for copy/paste support
+    try:
+        pygame.scrap.init()  # type: ignore[attr-defined]
+    except Exception:
+        pass
     cols = min(2, num_instances)
     rows = (num_instances + cols - 1) // cols
     panel_w, panel_h = 600, 300
@@ -37,6 +42,7 @@ def run_multi(num_instances: int = 3, show_ct: bool = True) -> None:
     ct_rect: pygame.Rect | None = None
     rag_tries: List[int] = []  # 5 tries per player
     next_round_votes: List[int] = []  # fun hint counter per player
+    scroll_offsets: List[int] = []
 
     for i in range(num_instances):
         r = i // cols
@@ -52,6 +58,7 @@ def run_multi(num_instances: int = 3, show_ct: bool = True) -> None:
         input_boxes.append(InputBox(x + 10, y + panel_h - 50, panel_w - 20, 32))
         rag_tries.append(5)
         next_round_votes.append(0)
+        scroll_offsets.append(0)
 
     # CT panel (separate; cannot see T chat)
     ct_input: InputBox | None = None
@@ -66,12 +73,21 @@ def run_multi(num_instances: int = 3, show_ct: bool = True) -> None:
             "Commands: 'shoot player/bot', 'defuse bomb', 'move to A-site/B-site'",
             "Objective: Prevent bomb plant or defuse if planted!"
         ]
+        ct_scroll_offset = 0
 
     running = True
     while running:
-        for event in pygame.event.get():
+        events = pygame.event.get()
+        for event in events:
             if event.type == pygame.QUIT:
                 running = False
+            if event.type == getattr(pygame, "MOUSEWHEEL", None):
+                mx, my = pygame.mouse.get_pos()
+                for i, rect in enumerate(rects):
+                    if rect.collidepoint(mx, my):
+                        scroll_offsets[i] = max(0, scroll_offsets[i] + event.y)
+                if show_ct and ct_rect is not None and ct_rect.collidepoint(mx, my):
+                    ct_scroll_offset = max(0, ct_scroll_offset + event.y)
             # route input to the panel box that is active
             for i, ib in enumerate(input_boxes):
                 text = ib.handle_event(event)
@@ -287,11 +303,11 @@ Please provide tactical advice based on the current game state and available kno
         for i, rect in enumerate(rects):
             sub = screen.subsurface(rect)
             input_boxes[i].update()
-            render_ui(sub, chat_logs[i], input_boxes[i], rect.width, rect.height)
+            render_ui(sub, chat_logs[i], input_boxes[i], rect.width, rect.height, scroll_offsets[i])
         if show_ct and ct_rect is not None and ct_input is not None and ct_chat is not None:
             sub_ct = screen.subsurface(ct_rect)
             ct_input.update()
-            render_ui(sub_ct, ct_chat, ct_input, ct_rect.width, ct_rect.height)
+            render_ui(sub_ct, ct_chat, ct_input, ct_rect.width, ct_rect.height, ct_scroll_offset if 'ct_scroll_offset' in locals() else 0)
 
         pygame.display.flip()
         clock.tick(30)
