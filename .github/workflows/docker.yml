@@ -45,7 +45,7 @@ jobs:
     - name: Start services
       run: |
         docker compose up -d postgres chromadb
-        sleep 30
+        sleep 45
     
     - name: Test database connectivity
       run: |
@@ -53,8 +53,16 @@ jobs:
     
     - name: Test ChromaDB connectivity
       run: |
-        # Try the root endpoint first, then try v2 heartbeat
-        curl -f http://localhost:8000/ || curl -f http://localhost:8000/api/v2/heartbeat
+        # Wait for ChromaDB to be fully ready and test connectivity
+        for i in {1..30}; do
+          if curl -f http://localhost:8000/ >/dev/null 2>&1; then
+            echo "ChromaDB is ready"
+            break
+          fi
+          echo "Waiting for ChromaDB... (attempt $i/30)"
+          sleep 2
+        done
+        curl -f http://localhost:8000/
     
     - name: Start API and Agent services
       run: |
