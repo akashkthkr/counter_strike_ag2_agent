@@ -66,6 +66,15 @@ jobs:
             sleep 1
           done
           
+          # Test root route as well
+          echo "Testing Web UI root route..."
+          if curl -fsS http://localhost:8082/ >/dev/null; then
+            echo "✅ Web UI root route is accessible"
+          else
+            echo "⚠️  Web UI root route may have issues"
+            curl -v http://localhost:8082/ || true
+          fi
+          
           # Verify ChromaDB is also healthy
           echo "Checking ChromaDB health..."
           if curl -fsS http://localhost:8000/api/v1/heartbeat >/dev/null; then
@@ -75,6 +84,13 @@ jobs:
           fi
           
           echo "🎯 All services are ready for preview!"
+          
+          # Debug: Show running services and ports
+          echo "📋 Service Status:"
+          docker compose ps
+          echo ""
+          echo "🔌 Port Status:"
+          netstat -tlnp | grep -E "(8080|8081|8082|5432|8000)" || true
 
       - name: Download cloudflared
         run: |
@@ -114,8 +130,9 @@ jobs:
             echo "";
             echo "🚀 **Available Interfaces:**";
             echo "- 🎯 **Main Game UI:** <${URL}>";
-            echo "- 🤖 **API Docs:** <${URL/8082/8080}/docs>";
-            echo "- 🔍 **ChromaDB:** <${URL/8082/8000}>";
+            echo "";
+            echo "📝 **Note:** Only the Web UI is publicly accessible through this preview.";
+            echo "The API and ChromaDB are internal services accessible within the Docker network.";
             echo "";
             echo "⏰ **Preview Duration:** 20 minutes";
             echo "";
