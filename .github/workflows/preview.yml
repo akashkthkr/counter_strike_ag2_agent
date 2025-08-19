@@ -32,29 +32,49 @@ jobs:
           docker compose build
           docker compose up -d
 
-      - name: Wait for API health
+      - name: Wait for services to be healthy
         run: |
+          echo "Waiting for all services to be healthy..."
+          
+          # Wait for API health
+          echo "Checking API health..."
           for i in {1..90}; do
             if curl -fsS http://localhost:8080/health >/dev/null; then
-              echo "API is healthy"; exit 0;
+              echo "✅ API is healthy"; break;
+            fi
+            if [ $i -eq 90 ]; then
+              echo "❌ API did not become healthy in time" >&2
+              docker compose ps
+              docker compose logs api
+              exit 1
             fi
             sleep 1
           done
-          echo "API did not become healthy in time" >&2
-          docker compose ps
-          exit 1
-
-      - name: Wait for Web UI health
-        run: |
+          
+          # Wait for Web UI health
+          echo "Checking Web UI health..."
           for i in {1..60}; do
             if curl -fsS http://localhost:8082/api/state >/dev/null; then
-              echo "Web UI is healthy"; exit 0;
+              echo "✅ Web UI is healthy"; break;
+            fi
+            if [ $i -eq 60 ]; then
+              echo "❌ Web UI did not become healthy in time" >&2
+              docker compose ps
+              docker compose logs web_ui
+              exit 1
             fi
             sleep 1
           done
-          echo "Web UI did not become healthy in time" >&2
-          docker compose ps
-          exit 1
+          
+          # Verify ChromaDB is also healthy
+          echo "Checking ChromaDB health..."
+          if curl -fsS http://localhost:8000/api/v1/heartbeat >/dev/null; then
+            echo "✅ ChromaDB is healthy"
+          else
+            echo "⚠️  ChromaDB may still be starting up"
+          fi
+          
+          echo "🎯 All services are ready for preview!"
 
       - name: Download cloudflared
         run: |
@@ -94,8 +114,8 @@ jobs:
             echo "";
             echo "🚀 **Available Interfaces:**";
             echo "- 🎯 **Main Game UI:** <${URL}>";
-            echo "- 🤖 **API Docs:** <${URL%:8082}:8080/docs>";
-            echo "- 🔍 **ChromaDB:** <${URL%:8082}:8000>";
+            echo "- 🤖 **API Docs:** <${URL/8082/8080}/docs>";
+            echo "- 🔍 **ChromaDB:** <${URL/8082/8000}>";
             echo "";
             echo "⏰ **Preview Duration:** 20 minutes";
             echo "";
