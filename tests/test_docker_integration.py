@@ -106,7 +106,7 @@ class TestDockerIntegration:
         data = response.json()
         assert "result" in data
         assert "game_state" in data
-        assert "moved to A-site" in data["result"].lower()
+        assert "moved to a-site" in data["result"].lower()
     
     @pytest.mark.asyncio
     async def test_agent_rag_query(self, agent_client):
@@ -209,8 +209,11 @@ class TestDockerIntegration:
     @pytest.mark.asyncio
     async def test_service_error_handling(self, api_client, agent_client):
         """Test error handling in services."""
-        # Test invalid session ID
-        response = await api_client.get("/sessions/invalid-id/state")
+        # Test invalid session ID (use proper UUID format)
+        response = await api_client.get("/sessions/00000000-0000-0000-0000-000000000000/state")
+        if response.status_code != 404:
+            print(f"Error handling test - Status: {response.status_code}")
+            print(f"Response: {response.text}")
         assert response.status_code == 404
         
         # Test invalid agent type
