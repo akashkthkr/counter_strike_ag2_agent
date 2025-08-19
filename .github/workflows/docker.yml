@@ -62,16 +62,10 @@ jobs:
     
     - name: Test ChromaDB connectivity
       run: |
-        # Wait for ChromaDB to be fully ready and test connectivity
-        for i in {1..30}; do
-          if curl -f http://localhost:8000/ >/dev/null 2>&1; then
-            echo "ChromaDB is ready"
-            break
-          fi
-          echo "Waiting for ChromaDB... (attempt $i/30)"
-          sleep 2
-        done
-        curl -f http://localhost:8000/
+        echo "Testing ChromaDB connectivity..."
+        # ChromaDB should be healthy due to health check, but verify
+        curl -f http://localhost:8000/api/v1/heartbeat
+        echo "ChromaDB is ready and healthy!"
     
     - name: Start API and Agent services
       run: |

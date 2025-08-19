@@ -31,12 +31,20 @@ jobs:
           - 5432:5432
       
       chromadb:
-        image: ghcr.io/chroma-core/chroma:latest
+        image: ghcr.io/chroma-core/chroma:0.5.0
         env:
           CHROMA_SERVER_HOST: 0.0.0.0
           CHROMA_SERVER_HTTP_PORT: 8000
+          IS_PERSISTENT: TRUE
+          ANONYMIZED_TELEMETRY: FALSE
         ports:
           - 8000:8000
+        options: >-
+          --health-cmd "curl -f http://localhost:8000/api/v1/heartbeat"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
+          --health-start-period 30s
 
     steps:
     - uses: actions/checkout@v4
@@ -69,15 +77,10 @@ jobs:
     
     - name: Wait for services to be ready
       run: |
-        echo "Waiting for ChromaDB to be ready..."
-        for i in {1..30}; do
-          if curl -f http://localhost:8000/ >/dev/null 2>&1; then
-            echo "ChromaDB is ready"
-            break
-          fi
-          echo "Waiting for ChromaDB... (attempt $i/30)"
-          sleep 2
-        done
+        echo "Services should be healthy via Docker health checks"
+        # Quick verification that services are responding
+        curl -f http://localhost:8000/api/v1/heartbeat
+        echo "ChromaDB is ready!"
     
     - name: Set up test environment
       run: |
