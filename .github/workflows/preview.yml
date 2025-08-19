@@ -15,9 +15,17 @@ jobs:
       - name: Create .env file for preview
         run: |
           cp env.example .env
-          # Set test API keys for demo
-          sed -i 's/your-anthropic-api-key-here/test-key-anthropic/g' .env
-          sed -i 's/your-openai-api-key-here/test-key-openai/g' .env
+          # Use real API keys if available, otherwise use test keys
+          if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+            sed -i 's/your-anthropic-api-key-here/${{ secrets.ANTHROPIC_API_KEY }}/g' .env
+          else
+            sed -i 's/your-anthropic-api-key-here/test-key-anthropic/g' .env
+          fi
+          if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
+            sed -i 's/your-openai-api-key-here/${{ secrets.OPENAI_API_KEY }}/g' .env
+          else
+            sed -i 's/your-openai-api-key-here/test-key-openai/g' .env
+          fi
 
       - name: Build & start stack
         run: |

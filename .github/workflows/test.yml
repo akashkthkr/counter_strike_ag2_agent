@@ -83,9 +83,20 @@ jobs:
       run: |
         mkdir -p logs .chroma
         cp env.example .env.test
+        # Set API keys in .env.test if available
+        if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+          sed -i 's/your-anthropic-api-key-here/${{ secrets.ANTHROPIC_API_KEY }}/g' .env.test
+        fi
+        if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
+          sed -i 's/your-openai-api-key-here/${{ secrets.OPENAI_API_KEY }}/g' .env.test
+        fi
       env:
         DATABASE_URL: postgresql://cs_user:cs_password@localhost:5432/counter_strike_db_test
         CHROMA_URL: http://localhost:8000
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     
     - name: Run core functionality tests
       run: |
@@ -93,6 +104,8 @@ jobs:
       env:
         DATABASE_URL: postgresql://cs_user:cs_password@localhost:5432/counter_strike_db_test
         CHROMA_URL: http://localhost:8000
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     
     - name: Run RAG tests
       run: |
@@ -100,6 +113,8 @@ jobs:
       env:
         DATABASE_URL: postgresql://cs_user:cs_password@localhost:5432/counter_strike_db_test
         CHROMA_URL: http://localhost:8000
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     
     - name: Run agent tests (essential)
       run: |
@@ -107,6 +122,8 @@ jobs:
       env:
         DATABASE_URL: postgresql://cs_user:cs_password@localhost:5432/counter_strike_db_test
         CHROMA_URL: http://localhost:8000
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     
     - name: Run integration tests (essential)
       run: |
@@ -114,6 +131,8 @@ jobs:
       env:
         DATABASE_URL: postgresql://cs_user:cs_password@localhost:5432/counter_strike_db_test
         CHROMA_URL: http://localhost:8000
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     
     - name: Run Docker integration tests
       run: |
@@ -121,6 +140,8 @@ jobs:
       env:
         DATABASE_URL: postgresql://cs_user:cs_password@localhost:5432/counter_strike_db_test
         CHROMA_URL: http://localhost:8000
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     
     - name: Generate test report
       run: |
@@ -128,6 +149,8 @@ jobs:
       env:
         DATABASE_URL: postgresql://cs_user:cs_password@localhost:5432/counter_strike_db_test
         CHROMA_URL: http://localhost:8000
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
