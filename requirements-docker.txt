@@ -1,0 +1,26 @@
+# Extend base requirements with Docker-specific dependencies
+-r requirements.txt
+
+# FastAPI and async support
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+websockets>=12.0
+
+# Database
+asyncpg>=0.29.0
+psycopg2-binary>=2.9.7
+
+# Redis and Celery
+redis>=5.0.1
+celery[redis]>=5.3.4
+
+# HTTP client for service communication
+httpx>=0.25.2
+aiohttp>=3.9.0
+
+# Additional utilities
+pydantic>=2.5.0
+python-multipart>=0.0.6
+
+# Monitoring and logging
+structlog>=23.2.0

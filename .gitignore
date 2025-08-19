@@ -8,6 +8,7 @@ __pycache__/
 .venv-cs/
 env/
 venv/
+venv-cs/
 ENV/
 *.egg-info/
 dist/
@@ -15,13 +16,34 @@ build/
 
 # OS
 .DS_Store
+Thumbs.db
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # Project artifacts
 .chroma/
 OAI_CONFIG_LIST
+.env
+*.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+test-output.xml
+coverage.xml
+.tox/
+
+# ChromaDB exports
+chromadb_export.txt
+
+# Temporary files
+*.tmp
+*.temp
+temp/
 
 

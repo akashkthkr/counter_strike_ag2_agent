@@ -1,31 +1,36 @@
 from __future__ import annotations
 
+import random
 from typing import List
 
 import pygame
-import random
 
-from counter_strike_ag2_agent.game_state import GameState
 from counter_strike_ag2_agent.agents import create_terrorists_group
-from counter_strike_ag2_agent.ui import InputBox, render_ui
+from counter_strike_ag2_agent.contrib_integration import (run_critic,
+                                                          run_quantifier,
+                                                          run_som)
+from counter_strike_ag2_agent.game_state import GameState
 from counter_strike_ag2_agent.rag import RagTerroristHelper
 from counter_strike_ag2_agent.rag_vector import ChromaRAG
+from counter_strike_ag2_agent.ui import InputBox, render_ui
 
 
 def run_multi(num_instances: int = 3, show_ct: bool = True) -> None:
-    pygame.init()
+    getattr(pygame, "init", lambda: None)()
     # Initialize clipboard for copy/paste support
     try:
         pygame.scrap.init()  # type: ignore[attr-defined]
     except Exception:
         pass
-    cols = min(2, num_instances)
-    rows = (num_instances + cols - 1) // cols
-    panel_w, panel_h = 600, 300
+    # Grid based on total panels (terrorists + optional CT)
+    total_panels = num_instances + (1 if show_ct else 0)
+    cols = min(2, total_panels)
+    rows = (total_panels + cols - 1) // cols
+    # Slightly larger tiles for better readability
+    panel_w, panel_h = 700, 360
     pad = 10
     width = cols * panel_w + (cols + 1) * pad
-    height_rows = rows + (1 if show_ct else 0)
-    height = height_rows * panel_h + (height_rows + 1) * pad
+    height = rows * panel_h + (rows + 1) * pad
     screen = pygame.display.set_mode((width, height))
     pygame.display.set_caption("Counter-Strike AG2 Multi-Agent")
 
@@ -53,7 +58,7 @@ def run_multi(num_instances: int = 3, show_ct: bool = True) -> None:
         chat_logs.append([
             f"T{i+1}: Ready! Round {state.round}/{state.max_rounds}",
             "Commands: 'shoot player/bot', 'plant bomb', 'move to A-site', 'defuse bomb'",
-            "AI Help: 'rag:', 'ag2:', 'smart:', 'kb:add', 'ask:'"
+            "AI Help: 'rag:', 'ag2:', 'smart:', 'kb:add', 'kb:load <file>', 'kb:clear', 'ask:'"
         ]) 
         input_boxes.append(InputBox(x + 10, y + panel_h - 50, panel_w - 20, 32))
         rag_tries.append(5)
@@ -64,8 +69,11 @@ def run_multi(num_instances: int = 3, show_ct: bool = True) -> None:
     ct_input: InputBox | None = None
     ct_chat: List[str] | None = None
     if show_ct:
-        x = pad + (cols - 1) * (panel_w + pad)
-        y = pad + rows * (panel_h + pad)
+        ct_index = num_instances  # Place CT after all T panels in the same grid
+        r = ct_index // cols
+        c = ct_index % cols
+        x = pad + c * (panel_w + pad)
+        y = pad + r * (panel_h + pad)
         ct_rect = pygame.Rect(x, y, panel_w, panel_h)
         ct_input = InputBox(x + 10, y + panel_h - 50, panel_w - 20, 32)
         ct_chat = [
@@ -79,7 +87,7 @@ def run_multi(num_instances: int = 3, show_ct: bool = True) -> None:
     while running:
         events = pygame.event.get()
         for event in events:
-            if event.type == pygame.QUIT:
+            if event.type == getattr(pygame, "QUIT", None):
                 running = False
             if event.type == getattr(pygame, "MOUSEWHEEL", None):
                 mx, my = pygame.mouse.get_pos()
@@ -116,28 +124,68 @@ def run_multi(num_instances: int = 3, show_ct: bool = True) -> None:
                                 # Get comprehensive game context
                                 game_status = state.get_game_status()
                                 game_facts = RagTerroristHelper.build_facts(state)
-                                context = f"Game Status: {game_status}\nDetailed Context: {' '.join(game_facts)}\n\nQuestion: {q}"
+                                context = f"Game Status: {game_status}\nDetailed Context: {' '.join(game_facts)}\n\nQuestion: {q}\n\nGive a SHORT tactical response (1-2 sentences max)."
                                 
                                 # Create a message for the bot
                                 user_message = {"content": context, "role": "user"}
                                 
                                 # Send to AG2 agent (terrorist bot)
-                                bot_agent = manager.groupchat.agents[1]  # Get the bot agent
+                                bot_agent = None
+                                for agent in manager.groupchat.agents:
+                                    if hasattr(agent, 'system_message') and 'bot' in agent.name.lower():
+                                        bot_agent = agent
+                                        break
+                                
+                                if not bot_agent:
+                                    raise Exception("Could not find bot agent in group chat")
+                                
                                 agent_response = bot_agent.generate_reply(
                                     messages=[user_message],
                                     sender=None
                                 )
-                                response_text = str(agent_response) if agent_response else "No response from agent"
+                                
+                                # Clean up the response formatting
+                                if agent_response:
+                                    if isinstance(agent_response, dict) and 'content' in agent_response:
+                                        response_text = agent_response['content']
+                                    else:
+                                        response_text = str(agent_response)
+                                    
+                                    # Clean up excessive newlines and whitespace
+                                    response_text = response_text.replace('\\n\\n', ' ').replace('\\n', ' ')
+                                    response_text = ' '.join(response_text.split())  # Remove extra whitespace
+                                    
+                                    # Limit length to keep it readable
+                                    if len(response_text) > 200:
+                                        response_text = response_text[:197] + "..."
+                                else:
+                                    response_text = "No response from agent"
+                                
                                 chat_logs[i].append(f"AG2: {response_text} ({rag_tries[i]} tries left)")
                             except Exception as e:
-                                chat_logs[i].append(f"AG2 Error: {str(e)} ({rag_tries[i]} tries left)")
+                                error_msg = str(e)
+                                if "Could not find bot agent" in error_msg:
+                                    chat_logs[i].append(f"AG2 Error: Bot agent not found. Check AG2 setup. ({rag_tries[i]} tries left)")
+                                elif "api" in error_msg.lower() or "key" in error_msg.lower():
+                                    chat_logs[i].append(f"AG2 Error: API issue - {error_msg[:100]}... ({rag_tries[i]} tries left)")
+                                else:
+                                    chat_logs[i].append(f"AG2 Error: {error_msg[:100]}... ({rag_tries[i]} tries left)")
                     # Vector RAG: knowledge base management and ask
-                    elif action.startswith("kb:add "):
-                        added = kb.add_texts([action.split(" ", 1)[1].strip()])
-                        chat_logs[i].append(f"KB: added {added} snippets")
+                    elif action.startswith("kb:add"):
+                        parts = text.strip().split(" ", 1)
+                        if len(parts) > 1 and parts[1]:
+                            added = kb.add_texts([parts[1]])
+                            chat_logs[i].append(f"KB: added {added} snippets")
+                        else:
+                            chat_logs[i].append("KB Error: No text provided to add.")
                     elif action.startswith("kb:load "):
-                        cnt = kb.add_file(action.split(" ", 1)[1].strip())
+                        # Clear then load to ensure reload reflects updates
+                        kb.clear()
+                        cnt = kb.add_file(text.strip().split(" ", 1)[1].strip())
                         chat_logs[i].append(f"KB: loaded {cnt} chunks")
+                    elif action.strip() == "kb:clear":
+                        kb.clear()
+                        chat_logs[i].append("KB: cleared")
                     elif action.startswith("ask:"):
                         q = action.split(":", 1)[1].strip()
                         ans = kb.ask(q)
@@ -160,21 +208,80 @@ Detailed Context: {' '.join(game_facts)}
 Knowledge Base: {kb_info}
 Question: {q}
 
-Please provide tactical advice based on the current game state and available knowledge."""
+Give SHORT tactical advice (1-2 sentences max) based on the current game state and available knowledge."""
                                 
                                 # Create a message for the bot
                                 user_message = {"content": context, "role": "user"}
                                 
                                 # Send to AG2 agent (terrorist bot)
-                                bot_agent = manager.groupchat.agents[1]  # Get the bot agent
+                                bot_agent = None
+                                for agent in manager.groupchat.agents:
+                                    if hasattr(agent, 'system_message') and 'bot' in agent.name.lower():
+                                        bot_agent = agent
+                                        break
+                                
+                                if not bot_agent:
+                                    raise Exception("Could not find bot agent in group chat")
+                                
                                 agent_response = bot_agent.generate_reply(
                                     messages=[user_message],
                                     sender=None
                                 )
-                                response_text = str(agent_response) if agent_response else "No response from agent"
+                                
+                                # Clean up the response formatting
+                                if agent_response:
+                                    if isinstance(agent_response, dict) and 'content' in agent_response:
+                                        response_text = agent_response['content']
+                                    else:
+                                        response_text = str(agent_response)
+                                    
+                                    # Clean up excessive newlines and whitespace
+                                    response_text = response_text.replace('\\n\\n', ' ').replace('\\n', ' ')
+                                    response_text = ' '.join(response_text.split())  # Remove extra whitespace
+                                    
+                                    # Limit length to keep it readable
+                                    if len(response_text) > 200:
+                                        response_text = response_text[:197] + "..."
+                                else:
+                                    response_text = "No response from agent"
+                                
                                 chat_logs[i].append(f"SMART: {response_text} ({rag_tries[i]} tries left)")
                             except Exception as e:
-                                chat_logs[i].append(f"SMART Error: {str(e)} ({rag_tries[i]} tries left)")
+                                error_msg = str(e)
+                                if "Could not find bot agent" in error_msg:
+                                    chat_logs[i].append(f"SMART Error: Bot agent not found. Check AG2 setup. ({rag_tries[i]} tries left)")
+                                elif "api" in error_msg.lower() or "key" in error_msg.lower():
+                                    chat_logs[i].append(f"SMART Error: API issue - {error_msg[:100]}... ({rag_tries[i]} tries left)")
+                                else:
+                                    chat_logs[i].append(f"SMART Error: {error_msg[:100]}... ({rag_tries[i]} tries left)")
+                    # New: Critic evaluation of a plan using AG2 contrib CriticAgent
+                    elif action.startswith("critic:"):
+                        if rag_tries[i] <= 0:
+                            chat_logs[i].append("CRITIC: No tries left.")
+                        else:
+                            rag_tries[i] -= 1
+                            plan = action.split(":", 1)[1].strip()
+                            res = run_critic(plan, state)
+                            chat_logs[i].append(f"CRITIC: {res} ({rag_tries[i]} tries left)")
+                    # New: Quantifier selection among options. Format: quant: opt1 | opt2 | opt3
+                    elif action.startswith("quant:"):
+                        if rag_tries[i] <= 0:
+                            chat_logs[i].append("QUANT: No tries left.")
+                        else:
+                            rag_tries[i] -= 1
+                            raw = action.split(":", 1)[1].strip()
+                            options = [o.strip() for o in raw.split("|") if o.strip()]
+                            res = run_quantifier(options, state)
+                            chat_logs[i].append(f"QUANT: {res} ({rag_tries[i]} tries left)")
+                    # New: Society-of-Mind reasoning for complex questions
+                    elif action.startswith("som:"):
+                        if rag_tries[i] <= 0:
+                            chat_logs[i].append("SOM: No tries left.")
+                        else:
+                            rag_tries[i] -= 1
+                            q = action.split(":", 1)[1].strip()
+                            res = run_som(q, state)
+                            chat_logs[i].append(f"SOM: {res} ({rag_tries[i]} tries left)")
                     elif action.startswith("cheat:"):
                         cmd = action.split(":", 1)[1].strip()
                         if cmd in ("status", "site"):
@@ -205,12 +312,19 @@ Please provide tactical advice based on the current game state and available kno
                     else:
                         # Apply action in shared game state (single terrorist entity key 'player')
                         result = state.apply_action("Terrorists", "player", action)
-                        chat_logs[i].append(result)
                         
-                        # Broadcast teammate actions to all T panels for shared awareness
-                        for j in range(num_instances):
-                            if j != i:
-                                chat_logs[j].append(f"T{i+1}: {action}")
+                        # Check if action was invalid
+                        if result.startswith("Invalid action:"):
+                            # Don't show invalid actions to anyone - completely silent
+                            pass
+                        else:
+                            # Valid action - show result to current player
+                            chat_logs[i].append(result)
+                            
+                            # Broadcast teammate actions to all T panels for shared awareness
+                            for j in range(num_instances):
+                                if j != i:
+                                    chat_logs[j].append(f"T{i+1}: {action}")
                         
                         # Add game status after significant actions
                         if any(keyword in action.lower() for keyword in ["shoot", "plant", "defuse", "move"]):
@@ -312,7 +426,7 @@ Please provide tactical advice based on the current game state and available kno
         pygame.display.flip()
         clock.tick(30)
 
-    pygame.quit()
+    getattr(pygame, "quit", lambda: None)()
 
 
 if __name__ == "__main__":
