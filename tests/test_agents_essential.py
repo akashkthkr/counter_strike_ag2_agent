@@ -94,10 +94,13 @@ class TestEssentialAgents(unittest.TestCase):
         providers = get_active_providers()
         self.assertIsInstance(providers, list)
         
-        # With API key should have providers
-        os.environ['ANTHROPIC_API_KEY'] = 'test-key'
-        providers = get_active_providers()
-        self.assertGreater(len(providers), 0)
+        # Mock a usable config to test provider detection
+        with patch('counter_strike_ag2_agent.agents.USABLE_CONFIG_LIST', [
+            {"api_type": "openai", "model": "gpt-4", "api_key": "test-key"}
+        ]):
+            providers = get_active_providers()
+            self.assertGreater(len(providers), 0)
+            self.assertIn("openai", providers)
     
     def test_agent_system_messages(self):
         """Test agents have appropriate system messages."""
