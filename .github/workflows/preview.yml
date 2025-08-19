@@ -1,0 +1,145 @@
+name: Live UI Preview
+
+on:
+  workflow_dispatch:
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create .env file for preview
+        run: |
+          cp env.example .env
+          # Set test API keys for demo
+          sed -i 's/your-anthropic-api-key-here/test-key-anthropic/g' .env
+          sed -i 's/your-openai-api-key-here/test-key-openai/g' .env
+
+      - name: Build & start stack
+        run: |
+          docker compose build
+          docker compose up -d
+
+      - name: Wait for API health
+        run: |
+          for i in {1..90}; do
+            if curl -fsS http://localhost:8080/health >/dev/null; then
+              echo "API is healthy"; exit 0;
+            fi
+            sleep 1
+          done
+          echo "API did not become healthy in time" >&2
+          docker compose ps
+          exit 1
+
+      - name: Wait for Web UI health
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8082/api/state >/dev/null; then
+              echo "Web UI is healthy"; exit 0;
+            fi
+            sleep 1
+          done
+          echo "Web UI did not become healthy in time" >&2
+          docker compose ps
+          exit 1
+
+      - name: Download cloudflared
+        run: |
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+          chmod +x cloudflared
+
+      - name: Start tunnel
+        run: |
+          ./cloudflared tunnel --url http://localhost:8082 --no-autoupdate --loglevel info > tunnel.log 2>&1 &
+          echo $! > tunnel.pid
+
+      - name: Wait for tunnel URL
+        id: tunnel
+        run: |
+          for i in {1..60}; do
+            URL=$(grep -Eo 'https://[A-Za-z0-9.-]+\.trycloudflare\.com' tunnel.log | head -n1 || true)
+            if [ -n "$URL" ]; then
+              echo "$URL" | tee preview-url.txt
+              echo "url=$URL" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Failed to detect tunnel URL" >&2
+          echo "--- tunnel.log (tail) ---"
+          tail -n 200 tunnel.log || true
+          exit 1
+
+      - name: Print preview URL
+        if: steps.tunnel.outputs.url != ''
+        run: |
+          URL='${{ steps.tunnel.outputs.url }}'
+          {
+            echo "🎮 **Counter-Strike AG2 Live Preview**";
+            echo "";
+            echo "**Preview URL:** \`$URL\`";
+            echo "";
+            echo "🚀 **Available Interfaces:**";
+            echo "- 🎯 **Main Game UI:** <${URL}>";
+            echo "- 🤖 **API Docs:** <${URL%:8082}:8080/docs>";
+            echo "- 🔍 **ChromaDB:** <${URL%:8082}:8000>";
+            echo "";
+            echo "⏰ **Preview Duration:** 20 minutes";
+            echo "";
+            echo "🎮 **How to Use:**";
+            echo "1. Click the Main Game UI link above";
+            echo "2. Use the 3 Terrorist panels and 1 CT panel";
+            echo "3. Try commands like:";
+            echo "   - \`rag: what should we do?\`";
+            echo "   - \`plant bomb at A site\`";
+            echo "   - \`defuse bomb\`";
+            echo "   - \`shoot player\`";
+            echo "4. Watch real-time updates across all panels!";
+            echo "";
+            echo "🔧 **System Status:**";
+            echo "- ✅ PostgreSQL Database";
+            echo "- ✅ Redis Cache";
+            echo "- ✅ ChromaDB Vector Store";
+            echo "- ✅ FastAPI Backend";
+            echo "- ✅ AG2 Agent Service";
+            echo "- ✅ Web UI Service";
+          } | tee -a $GITHUB_STEP_SUMMARY
+
+      - name: Keep alive (20 minutes)
+        run: sleep 1200
+
+      - name: Collect logs
+        if: always()
+        run: |
+          docker compose ps > compose-ps.txt
+          docker compose logs --no-color > compose-logs.txt || true
+          docker compose logs --no-color api > api.log || true
+          docker compose logs --no-color agent_service > agent_service.log || true
+          docker compose logs --no-color web_ui > web_ui.log || true
+          docker compose logs --no-color postgres > postgres.log || true
+          docker compose logs --no-color chromadb > chromadb.log || true
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-artifacts
+          path: |
+            preview-url.txt
+            tunnel.log
+            compose-ps.txt
+            compose-logs.txt
+            api.log
+            agent_service.log
+            web_ui.log
+            postgres.log
+            chromadb.log
+
+      - name: Down stack
+        if: always()
+        run: docker compose down -v || true
