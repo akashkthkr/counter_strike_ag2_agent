@@ -65,7 +65,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libsdl2-dev libsdl2-mixer-dev libsdl2-image-dev libsdl2-ttf-dev curl
+        sudo apt-get install -y libsdl2-dev libsdl2-mixer-dev libsdl2-image-dev libsdl2-ttf-dev curl postgresql-client
     
     - name: Install Python dependencies
       run: |
@@ -149,6 +149,10 @@ jobs:
         # Create logs directory
         mkdir -p logs
         
+        # Initialize database schema for Docker integration tests
+        echo "Initializing database schema..."
+        PGPASSWORD=cs_password psql -h localhost -U cs_user -d counter_strike_db_test -f docker/postgres/init.sql
+        
         # Build the Docker images first
         echo "Building Docker images..."
         docker compose build api agent_service
@@ -198,6 +202,14 @@ jobs:
         
         # Run the Docker integration tests
         python -m pytest tests/test_docker_integration.py -v --cov=counter_strike_ag2_agent --cov-append
+        
+        # If tests failed, show container logs for debugging
+        if [ $? -ne 0 ]; then
+          echo "=== API Service Logs ==="
+          docker logs cs_api_test || true
+          echo "=== Agent Service Logs ==="
+          docker logs cs_agents_test || true
+        fi
         
         # Clean up services
         echo "Cleaning up test containers..."

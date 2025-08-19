@@ -55,6 +55,9 @@ class TestDockerIntegration:
         }
         
         response = await api_client.post("/sessions", json=session_data)
+        if response.status_code != 200:
+            print(f"API Error - Status: {response.status_code}")
+            print(f"Response: {response.text}")
         assert response.status_code == 200
         
         data = response.json()
