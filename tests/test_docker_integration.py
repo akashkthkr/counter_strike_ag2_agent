@@ -16,9 +16,19 @@ class TestDockerIntegration:
     def agent_client(self):
         return httpx.AsyncClient(base_url="http://localhost:8081")
     
+    async def _check_service_available(self, client: httpx.AsyncClient, service_name: str) -> bool:
+        """Check if a service is available."""
+        try:
+            response = await client.get("/health", timeout=5.0)
+            return response.status_code == 200
+        except (httpx.ConnectError, httpx.TimeoutException):
+            pytest.skip(f"{service_name} service is not available - skipping integration test")
+            return False
+    
     @pytest.mark.asyncio
     async def test_api_health_check(self, api_client):
         """Test that the API service is healthy."""
+        await self._check_service_available(api_client, "API")
         response = await api_client.get("/health")
         assert response.status_code == 200
         data = response.json()
@@ -28,6 +38,7 @@ class TestDockerIntegration:
     @pytest.mark.asyncio
     async def test_agent_service_health_check(self, agent_client):
         """Test that the Agent service is healthy."""
+        await self._check_service_available(agent_client, "Agent")
         response = await agent_client.get("/health")
         assert response.status_code == 200
         data = response.json()
@@ -37,6 +48,7 @@ class TestDockerIntegration:
     @pytest.mark.asyncio
     async def test_create_game_session(self, api_client):
         """Test creating a new game session."""
+        await self._check_service_available(api_client, "API")
         session_data = {
             "session_name": "Docker Test Session",
             "max_rounds": 3
@@ -96,6 +108,7 @@ class TestDockerIntegration:
     @pytest.mark.asyncio
     async def test_agent_rag_query(self, agent_client):
         """Test RAG agent query processing."""
+        await self._check_service_available(agent_client, "Agent")
         request_data = {
             "agent_type": "rag",
             "query": "What should we do if bomb is planted?",

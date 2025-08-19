@@ -65,7 +65,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libsdl2-dev libsdl2-mixer-dev libsdl2-image-dev libsdl2-ttf-dev
+        sudo apt-get install -y libsdl2-dev libsdl2-mixer-dev libsdl2-image-dev libsdl2-ttf-dev curl
     
     - name: Install Python dependencies
       run: |
@@ -137,7 +137,45 @@ jobs:
     
     - name: Run Docker integration tests
       run: |
+        # Create .env file for Docker services
+        cp env.example .env
+        if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+          sed -i 's/your-anthropic-api-key-here/${{ secrets.ANTHROPIC_API_KEY }}/g' .env
+        fi
+        if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
+          sed -i 's/your-openai-api-key-here/${{ secrets.OPENAI_API_KEY }}/g' .env
+        fi
+        
+        # Start API and Agent services for integration tests
+        echo "Starting API and Agent services..."
+        docker compose up -d api agent_service
+        
+        # Wait for services to be ready
+        echo "Waiting for API service..."
+        for i in {1..30}; do
+          if curl -f http://localhost:8080/health >/dev/null 2>&1; then
+            echo "API service is ready"
+            break
+          fi
+          echo "Waiting for API... (attempt $i/30)"
+          sleep 2
+        done
+        
+        echo "Waiting for Agent service..."
+        for i in {1..30}; do
+          if curl -f http://localhost:8081/health >/dev/null 2>&1; then
+            echo "Agent service is ready"
+            break
+          fi
+          echo "Waiting for Agent service... (attempt $i/30)"
+          sleep 2
+        done
+        
+        # Run the Docker integration tests
         python -m pytest tests/test_docker_integration.py -v --cov=counter_strike_ag2_agent --cov-append
+        
+        # Clean up services
+        docker compose down api agent_service
       env:
         DATABASE_URL: postgresql://cs_user:cs_password@localhost:5432/counter_strike_db_test
         CHROMA_URL: http://localhost:8000
