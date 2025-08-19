@@ -8,7 +8,7 @@ This document describes the complete Docker-based microservices architecture and
 graph TB
     subgraph "Host System"
         USER[👤 User Browser]
-        PORTS[🔌 Port Mappings<br/>8080: API<br/>8081: Agents<br/>8082: Web UI<br/>5432: PostgreSQL<br/>6379: Redis<br/>8000: ChromaDB]
+        PORTS[🔌 Port Mappings<br/>8080: API<br/>8081: Agents<br/>8082: Web UI<br/>5432: PostgreSQL<br/>8000: ChromaDB]
     end
 
     subgraph "Docker Network: cs_network"
@@ -21,14 +21,8 @@ graph TB
             AGENTS[🤖 Agent Service<br/>Port: 8081<br/>AG2 Multi-Agent<br/>AI Processing]
         end
 
-        subgraph "Background Processing"
-            CELERY_WORKER[⚙️ Celery Worker<br/>Background Tasks<br/>AI Query Processing]
-            CELERY_BEAT[⏰ Celery Beat<br/>Scheduled Tasks<br/>Cleanup & Maintenance]
-        end
-
         subgraph "Data Layer"
             POSTGRES[🗄️ PostgreSQL<br/>Port: 5432<br/>Game Sessions<br/>Player States<br/>Action Logs]
-            REDIS[📦 Redis<br/>Port: 6379<br/>Task Queue<br/>Caching<br/>Session Store]
             CHROMADB[🔍 ChromaDB<br/>Port: 8000<br/>Vector Database<br/>RAG Knowledge Base]
         end
     end
@@ -44,26 +38,18 @@ graph TB
 
     %% Backend API flows
     API -->|Game State| POSTGRES
-    API -->|Async Tasks| REDIS
     API -->|Vector Search| CHROMADB
 
     %% Agent Service flows
     AGENTS -->|Context Data| POSTGRES
     AGENTS -->|RAG Queries| CHROMADB
-    AGENTS -->|Cache Results| REDIS
-
-    %% Background processing
-    CELERY_WORKER -->|Consume Tasks| REDIS
-    CELERY_WORKER -->|AI Processing| AGENTS
-    CELERY_WORKER -->|Store Results| POSTGRES
-    CELERY_BEAT -->|Schedule Tasks| REDIS
 
     %% Port mappings
     PORTS -.->|8082| WEBUI
     PORTS -.->|8080| API
     PORTS -.->|8081| AGENTS
     PORTS -.->|5432| POSTGRES
-    PORTS -.->|6379| REDIS
+
     PORTS -.->|8000| CHROMADB
 
     style USER fill:#e1f5fe
@@ -71,7 +57,7 @@ graph TB
     style API fill:#e8f5e8
     style AGENTS fill:#fff3e0
     style POSTGRES fill:#e3f2fd
-    style REDIS fill:#ffebee
+
     style CHROMADB fill:#f1f8e9
 ```
 
@@ -85,8 +71,6 @@ sequenceDiagram
     participant WebUI as 🌐 Web UI Service
     participant API as 📡 API Service
     participant DB as 🗄️ PostgreSQL
-    participant Redis as 📦 Redis
-
     User->>WebUI: POST /api/terrorist/0/input<br/>{"text": "shoot player"}
     WebUI->>API: POST /sessions/{id}/actions<br/>{"team": "Terrorists", "action": "shoot player"}
     API->>DB: INSERT INTO game_actions
@@ -106,7 +90,7 @@ sequenceDiagram
     participant WebUI as 🌐 Web UI Service
     participant Agents as 🤖 Agent Service
     participant ChromaDB as 🔍 ChromaDB
-    participant Redis as 📦 Redis
+
 
     User->>WebUI: POST /api/terrorist/0/input<br/>{"text": "rag: what should we do?"}
     WebUI->>Agents: POST /process<br/>{"agent_type": "rag", "query": "what should we do?"}
@@ -126,7 +110,7 @@ sequenceDiagram
     participant WebUI as 🌐 Web UI Service
     participant Agents as 🤖 Agent Service
     participant Celery as ⚙️ Celery Worker
-    participant Redis as 📦 Redis
+
     participant DB as 🗄️ PostgreSQL
 
     User->>WebUI: POST /api/terrorist/0/input<br/>{"text": "ag2: analyze current situation"}
@@ -136,16 +120,6 @@ sequenceDiagram
         Agents->>Agents: Load AG2 GroupChat
         Agents->>Agents: Generate agent response
         Agents-->>WebUI: {"success": true, "response": "Tactical analysis..."}
-    else Async Processing (Heavy Queries)
-        Agents->>Redis: LPUSH task_queue<br/>{"agent_query": "complex analysis"}
-        Redis-->>Agents: Task queued
-        Agents-->>WebUI: {"success": true, "response": "Processing..."}
-        
-        Celery->>Redis: BRPOP task_queue
-        Redis-->>Celery: Task data
-        Celery->>Agents: Process AG2 query
-        Celery->>DB: INSERT INTO agent_interactions
-        Celery->>Redis: SET result_cache
     end
 
     WebUI-->>User: WebSocket update<br/>Response displayed
@@ -186,7 +160,7 @@ All services communicate within the `cs_network` Docker network using container 
 API_URL=http://api:8080           # Web UI → API Service
 AGENT_URL=http://agent_service:8081  # Web UI → Agent Service
 DATABASE_URL=postgresql://cs_user:cs_password@postgres:5432/counter_strike_db
-REDIS_URL=redis://redis:6379/0
+
 CHROMA_URL=http://chromadb:8000
 ```
 
@@ -198,7 +172,7 @@ Host Port → Container Port → Service
 8081      → 8081           → Agent Service (AG2)
 8082      → 8082           → Web UI Service (Frontend)
 5432      → 5432           → PostgreSQL Database
-6379      → 6379           → Redis Cache/Queue
+
 8000      → 8000           → ChromaDB Vector Store
 ```
 
@@ -207,41 +181,30 @@ Host Port → Container Port → Service
 ```mermaid
 graph TD
     A[PostgreSQL] --> B[API Service]
-    C[Redis] --> B
+
     D[ChromaDB] --> B
     
-    A --> E[Celery Worker]
-    C --> E
-    D --> E
-    
     A --> F[Agent Service]
-    C --> F
     D --> F
     
     B --> G[Web UI Service]
     F --> G
-    
-    C --> H[Celery Beat]
 
     style A fill:#e3f2fd
-    style C fill:#ffebee
     style D fill:#f1f8e9
     style B fill:#e8f5e8
-    style E fill:#fff8e1
     style F fill:#fff3e0
     style G fill:#f3e5f5
-    style H fill:#fff8e1
 ```
 
 ### Health Check Chain
 
 ```bash
 # Startup sequence with health checks
-1. PostgreSQL, Redis, ChromaDB (parallel)
+1. PostgreSQL, ChromaDB (parallel)
 2. Wait for databases to be healthy
 3. API Service, Agent Service (parallel)
-4. Celery Worker, Celery Beat (parallel)  
-5. Web UI Service (depends on API + Agents)
+4. Web UI Service (depends on API + Agents)
 ```
 
 ## 🔧 Configuration & Environment
@@ -251,7 +214,7 @@ graph TD
 ```bash
 # Database connections
 DATABASE_URL=postgresql://cs_user:cs_password@postgres:5432/counter_strike_db
-REDIS_URL=redis://redis:6379/0
+
 CHROMA_URL=http://chromadb:8000
 
 # Service URLs
@@ -270,7 +233,7 @@ OAI_CONFIG_LIST='[{"model":"claude-3-5-sonnet-20240620","api_type":"anthropic","
 volumes:
   # Persistent data
   - postgres_data:/var/lib/postgresql/data
-  - redis_data:/data  
+  
   - chroma_data:/chroma/chroma
   
   # Application logs
@@ -290,10 +253,10 @@ volumes:
 docker compose build
 
 # Start core services
-docker compose up -d postgres redis chromadb
+docker compose up -d postgres chromadb
 
 # Start application services
-docker compose up -d api agent_service celery_worker celery_beat
+docker compose up -d api agent_service
 
 # Start web interface
 docker compose up -d web_ui
@@ -338,8 +301,7 @@ curl http://localhost:8082/api/state
    # Check PostgreSQL
    docker compose exec postgres pg_isready -U cs_user
    
-   # Check Redis
-   docker compose exec redis redis-cli ping
+
    ```
 
 3. **Agent Processing Failures**

@@ -103,7 +103,6 @@ jobs:
             echo "";
             echo "🔧 **System Status:**";
             echo "- ✅ PostgreSQL Database";
-            echo "- ✅ Redis Cache";
             echo "- ✅ ChromaDB Vector Store";
             echo "- ✅ FastAPI Backend";
             echo "- ✅ AG2 Agent Service";

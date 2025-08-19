@@ -254,20 +254,7 @@ class TestDockerServices:
         except Exception as e:
             pytest.fail(f"PostgreSQL connection failed: {e}")
     
-    def test_redis_connection(self):
-        """Test Redis connection."""
-        try:
-            import redis
-            r = redis.Redis(host="localhost", port=6379, db=0)
-            r.ping()
-            assert r.set("test_key", "test_value")
-            assert r.get("test_key").decode() == "test_value"
-            r.delete("test_key")
-        except ImportError:
-            pytest.skip("redis-py not available for Redis test")
-        except Exception as e:
-            pytest.fail(f"Redis connection failed: {e}")
-    
+
     @pytest.mark.asyncio
     async def test_chromadb_connection(self):
         """Test ChromaDB connection."""

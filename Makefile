@@ -17,7 +17,7 @@ help:
 	@echo "  lint         - Run linting checks"
 	@echo "  dev          - Start development environment"
 	@echo "  db-shell     - Connect to PostgreSQL"
-	@echo "  redis-shell  - Connect to Redis"
+
 
 # Initial setup
 setup:
@@ -54,7 +54,7 @@ docker-clean:
 # Development
 dev: setup
 	@echo "🔧 Starting development environment..."
-	docker compose up -d postgres redis chromadb
+	docker compose up -d postgres chromadb
 	@echo "⏳ Waiting for databases..."
 	@sleep 10
 	docker compose up api agent_service
@@ -86,9 +86,7 @@ db-reset:
 	docker volume rm counter_strike_ag2_agent_postgres_data || true
 	docker compose up -d postgres
 
-redis-shell:
-	@echo "📦 Connecting to Redis..."
-	docker compose exec redis redis-cli
+
 
 # Service status
 status:

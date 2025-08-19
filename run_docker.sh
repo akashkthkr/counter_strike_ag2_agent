@@ -34,7 +34,7 @@ else
 fi
 
 # Check required environment variables
-required_vars=("ANTHROPIC_API_KEY" "DATABASE_URL" "REDIS_URL" "CHROMA_URL")
+required_vars=("ANTHROPIC_API_KEY" "DATABASE_URL" "CHROMA_URL")
 missing_vars=()
 
 for var in "${required_vars[@]}"; do
@@ -69,7 +69,7 @@ echo "🐳 Building Docker images..."
 docker compose build
 
 echo "🚀 Starting services..."
-docker compose up -d postgres redis chromadb
+docker compose up -d postgres chromadb
 
 echo "⏳ Waiting for databases to be ready..."
 sleep 10
@@ -82,7 +82,7 @@ sleep 5
 
 # Check service health
 echo "🩺 Checking service health..."
-services=("postgres:5432" "redis:6379" "chromadb:8000" "api:8080" "agent_service:8081")
+services=("postgres:5432" "chromadb:8000" "api:8080" "agent_service:8081")
 for service in "${services[@]}"; do
     host=$(echo $service | cut -d':' -f1)
     port=$(echo $service | cut -d':' -f2)
@@ -115,7 +115,7 @@ echo "   📡 API: http://localhost:8080"
 echo "   🤖 Agent Service: http://localhost:8081"
 echo "   🔍 ChromaDB: http://localhost:8000"
 echo "   🗄️  PostgreSQL: localhost:5432"
-echo "   📦 Redis: localhost:6379"
+
 echo ""
 echo ""
 echo "🎮 How to play:"

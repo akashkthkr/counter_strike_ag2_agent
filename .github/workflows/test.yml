@@ -32,16 +32,6 @@ jobs:
         ports:
           - 5432:5432
       
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-      
       chromadb:
         image: ghcr.io/chroma-core/chroma:latest
         env:
@@ -89,8 +79,6 @@ jobs:
       env:
         DATABASE_URL: postgresql://cs_user:cs_password@localhost:5432/counter_strike_db_test
         CHROMA_URL: http://localhost:8000
-        ANTHROPIC_API_KEY: test-key-anthropic
-        OPENAI_API_KEY: test-key-openai
     
     - name: Run core functionality tests
       run: |

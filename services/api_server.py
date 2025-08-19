@@ -74,7 +74,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# In-memory game states cache (in production, use Redis)
+# In-memory game states cache
 game_states_cache: Dict[str, GameState] = {}
 
 

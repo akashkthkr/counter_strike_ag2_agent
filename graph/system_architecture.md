@@ -243,7 +243,7 @@ graph TB
 5. **Secrets Management**: Kubernetes secrets or HashiCorp Vault
 
 ### Performance Enhancements
-1. **Caching Layer**: Redis for session state and frequent queries
+1. **Caching Layer**: In-memory caching for session state and frequent queries
 2. **CDN Integration**: Static asset delivery optimization
 3. **Database Optimization**: Read replicas and connection pooling
 4. **Agent Response Caching**: Cache frequent LLM responses

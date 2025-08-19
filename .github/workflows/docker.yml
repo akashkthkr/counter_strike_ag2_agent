@@ -44,7 +44,7 @@ jobs:
     
     - name: Start services
       run: |
-        docker compose up -d postgres redis chromadb
+        docker compose up -d postgres chromadb
         sleep 30
     
     - name: Test database connectivity
