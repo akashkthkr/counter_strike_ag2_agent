@@ -138,9 +138,9 @@ def render_ui(
 ) -> None:
     """Render chat log and input box."""
     screen.fill((20, 20, 20))
-    font = pygame.font.Font(None, 24)
+    font = pygame.font.Font(None, 28)
     padding = 10
-    line_height = 28
+    line_height = 32
 
     def wrap_text(text: str, max_w: int) -> list[str]:
         if not text:
@@ -191,8 +191,8 @@ def render_ui(
         screen.blit(text_surface, (padding, y))
         y += line_height
 
-    # Controls hint
-    hint = "Scroll: wheel  |  History: ↑/↓  |  Copy/Paste: Cmd/Ctrl+C/V/X"
+    # Controls hint (removed scroll-wheel message)
+    hint = ""
     hint_surface = font.render(hint, True, (150, 150, 150))
     screen.blit(hint_surface, (padding, height - 60))
     input_box.draw(screen)

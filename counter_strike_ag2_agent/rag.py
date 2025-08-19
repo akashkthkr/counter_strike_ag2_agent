@@ -70,9 +70,40 @@ class RagTerroristHelper:
         if any(k in q for k in ["upgrade", "suggest", "tip", "strategy", "what should we do"]):
             if not state.bomb_planted:
                 return "Group up and execute a fast hit: smoke entry, flash CT, then plant."
-            return "After plant, set a crossfire and play for time; avoid dry peeks."
+            site = state.bomb_site or "site"
+            return f"After plant at {site}, set a crossfire and play for time; avoid dry peeks."
 
         # Default: surface current facts as fallback
         return "Facts: " + " ".join(facts)
+
+    @staticmethod
+    def build_facts_from_context(context: dict) -> List[str]:
+        """Build facts from a context dictionary (used in Celery tasks)."""
+        facts: List[str] = []
+        
+        # Round and score info
+        round_num = context.get("round", 1)
+        facts.append(f"Round {round_num}")
+        
+        # Bomb status
+        if context.get("bomb_planted"):
+            bomb_site = context.get("bomb_site", "unknown")
+            facts.append(f"💣 BOMB PLANTED at {bomb_site}!")
+        else:
+            facts.append("💣 Bomb not planted.")
+            
+        # Health status from context
+        player_health = context.get("player_health", {})
+        for team, members in player_health.items():
+            alive = [f"{m}({hp}HP)" for m, hp in members.items() if hp > 0]
+            dead = [m for m, hp in members.items() if hp <= 0]
+            team_short = "T" if team == "Terrorists" else "CT"
+            
+            if alive:
+                facts.append(f"{team_short} alive: {', '.join(alive)}")
+            if dead:
+                facts.append(f"{team_short} dead: {', '.join(dead)}")
+                
+        return facts
 
 

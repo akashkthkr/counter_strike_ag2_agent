@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counter-Strike AG2 Multi-Agent System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 Counter-Strike AG2 Multi-Agent System</h1>
+        <div class="status">
+            <span id="connection-status">Connecting...</span>
+            <span id="session-info">Session: Loading...</span>
+            <button id="sound-toggle" class="sound-toggle" onclick="toggleSound()">🔊 Sound ON</button>
+        </div>
+    </div>
+
+    <div class="game-container">
+        <!-- Terrorist Panels -->
+        <div class="panels-grid">
+            <div class="panel terrorist-panel" id="panel-0">
+                <div class="panel-header">
+                    <h3>🔴 Terrorist 1</h3>
+                    <span class="tries-counter" id="tries-0">5 tries left</span>
+                </div>
+                <div class="chat-log" id="chat-0"></div>
+                <div class="input-area">
+                    <input type="text" class="command-input" id="input-0" placeholder="Enter command..." autocomplete="off">
+                    <button onclick="sendTerroristCommand(0)">Send</button>
+                </div>
+            </div>
+
+            <div class="panel terrorist-panel" id="panel-1">
+                <div class="panel-header">
+                    <h3>🔴 Terrorist 2</h3>
+                    <span class="tries-counter" id="tries-1">5 tries left</span>
+                </div>
+                <div class="chat-log" id="chat-1"></div>
+                <div class="input-area">
+                    <input type="text" class="command-input" id="input-1" placeholder="Enter command..." autocomplete="off">
+                    <button onclick="sendTerroristCommand(1)">Send</button>
+                </div>
+            </div>
+
+            <div class="panel terrorist-panel" id="panel-2">
+                <div class="panel-header">
+                    <h3>🔴 Terrorist 3</h3>
+                    <span class="tries-counter" id="tries-2">5 tries left</span>
+                </div>
+                <div class="chat-log" id="chat-2"></div>
+                <div class="input-area">
+                    <input type="text" class="command-input" id="input-2" placeholder="Enter command..." autocomplete="off">
+                    <button onclick="sendTerroristCommand(2)">Send</button>
+                </div>
+            </div>
+
+            <div class="panel ct-panel" id="ct-panel">
+                <div class="panel-header">
+                    <h3>🔵 Counter-Terrorist</h3>
+                </div>
+                <div class="chat-log" id="chat-ct"></div>
+                <div class="input-area">
+                    <input type="text" class="command-input" id="input-ct" placeholder="Enter command..." autocomplete="off">
+                    <button onclick="sendCTCommand()">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game State Panel -->
+        <div class="game-state-panel">
+            <h3>🎮 Game State</h3>
+            <div id="game-state">
+                <div class="state-item">
+                    <strong>Round:</strong> <span id="round-info">1/3</span>
+                </div>
+                <div class="state-item">
+                    <strong>Score:</strong> <span id="score-info">T:0 CT:0</span>
+                </div>
+                <div class="state-item">
+                    <strong>Bomb:</strong> <span id="bomb-info">Not planted</span>
+                </div>
+                <div class="state-item">
+                    <strong>Health:</strong>
+                    <div id="health-info">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Command Help Panel -->
+        <div class="help-panel">
+            <h3>💡 Command Help</h3>
+            <div class="help-section">
+                <h4>Game Actions:</h4>
+                <ul>
+                    <li><code>shoot player</code> - Attack enemy</li>
+                    <li><code>plant bomb</code> - Plant bomb</li>
+                    <li><code>defuse bomb</code> - Defuse bomb (CT only)</li>
+                    <li><code>move to A-site</code> - Move to location</li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h4>AI Queries:</h4>
+                <ul>
+                    <li><code>rag: question</code> - RAG knowledge base</li>
+                    <li><code>ag2: question</code> - AG2 agents</li>
+                    <li><code>smart: question</code> - Combined AI</li>
+                    <li><code>critic: plan</code> - Strategy critique</li>
+                    <li><code>quant: opt1 | opt2</code> - Rank options</li>
+                    <li><code>som: question</code> - Society of Mind</li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h4>Utility:</h4>
+                <ul>
+                    <li><code>cheat: status</code> - Show game status</li>
+                    <li><code>cheat: hp</code> - Show all health</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

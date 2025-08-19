@@ -1,0 +1,131 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: cs_postgres
+    environment:
+      POSTGRES_DB: counter_strike_db
+      POSTGRES_USER: cs_user
+      POSTGRES_PASSWORD: cs_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cs_user -d counter_strike_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cs_network
+
+
+
+  # ChromaDB for vector embeddings
+  chromadb:
+    image: ghcr.io/chroma-core/chroma:0.5.0
+    container_name: cs_chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+      - ANONYMIZED_TELEMETRY=FALSE
+    command: ["uvicorn", "chromadb.app:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - cs_network
+
+  # FastAPI Backend Service
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    container_name: cs_api
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgresql://cs_user:cs_password@postgres:5432/counter_strike_db
+      - CHROMA_URL=http://chromadb:8000
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - cs_network
+
+
+
+
+
+  # Agent Service for AG2 processing
+  agent_service:
+    build:
+      context: .
+      dockerfile: docker/agents/Dockerfile
+    container_name: cs_agents
+    environment:
+      - DATABASE_URL=postgresql://cs_user:cs_password@postgres:5432/counter_strike_db
+      - CHROMA_URL=http://chromadb:8000
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OAI_CONFIG_LIST=${OAI_CONFIG_LIST}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+      api:
+        condition: service_started
+    volumes:
+      - ./logs:/app/logs
+    ports:
+      - "8081:8081"
+    networks:
+      - cs_network
+
+  # Web UI Service (Browser-based interface)
+  web_ui:
+    build:
+      context: .
+      dockerfile: docker/web-ui/Dockerfile
+    container_name: cs_web_ui
+    ports:
+      - "8082:8082"
+    environment:
+      - API_URL=http://api:8080
+      - AGENT_URL=http://agent_service:8081
+    depends_on:
+      api:
+        condition: service_started
+      agent_service:
+        condition: service_started
+    volumes:
+      - ./logs:/app/logs
+      - ./templates:/app/templates
+      - ./static:/app/static
+    networks:
+      - cs_network
+
+volumes:
+  postgres_data:
+  chroma_data:
+
+networks:
+  cs_network:
+    driver: bridge
