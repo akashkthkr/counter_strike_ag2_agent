@@ -1,8 +1,7 @@
 import pytest
 import asyncio
 import httpx
-import time
-from typing import Dict, Any
+import json
 
 
 class TestDockerIntegration:
@@ -19,9 +18,9 @@ class TestDockerIntegration:
     async def _check_service_available(self, client: httpx.AsyncClient, service_name: str) -> bool:
         """Check if a service is available."""
         try:
-            response = await client.get("/health", timeout=5.0)
+            response = await client.get("/health", timeout=10.0)
             return response.status_code == 200
-        except (httpx.ConnectError, httpx.TimeoutException):
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.RequestError):
             pytest.skip(f"{service_name} service is not available - skipping integration test")
             return False
     
@@ -139,6 +138,7 @@ class TestDockerIntegration:
     @pytest.mark.asyncio
     async def test_agent_service_status(self, agent_client):
         """Test agent service status endpoint."""
+        await self._check_service_available(agent_client, "Agent")
         response = await agent_client.get("/agents/status")
         assert response.status_code == 200
         
@@ -149,6 +149,9 @@ class TestDockerIntegration:
     @pytest.mark.asyncio
     async def test_full_game_flow(self, api_client, agent_client):
         """Test a complete game flow with multiple actions."""
+        await self._check_service_available(api_client, "API")
+        await self._check_service_available(agent_client, "Agent")
+        
         # Create session
         session_data = {
             "session_name": "Full Flow Test",
@@ -188,6 +191,7 @@ class TestDockerIntegration:
         
         # Create a session first
         async with httpx.AsyncClient(base_url="http://localhost:8080") as client:
+            await self._check_service_available(client, "API")
             session_data = {"session_name": "WebSocket Test", "max_rounds": 3}
             response = await client.post("/sessions", json=session_data)
             session_id = response.json()["id"]
@@ -200,7 +204,7 @@ class TestDockerIntegration:
                 
                 # Wait for pong
                 response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
-                data = eval(response)  # Simple JSON parsing for test
+                data = json.loads(response)  # Proper JSON parsing for test
                 assert data["type"] == "pong"
                 
         except Exception as e:
@@ -209,6 +213,9 @@ class TestDockerIntegration:
     @pytest.mark.asyncio
     async def test_service_error_handling(self, api_client, agent_client):
         """Test error handling in services."""
+        await self._check_service_available(api_client, "API")
+        await self._check_service_available(agent_client, "Agent")
+        
         # Test invalid session ID (use proper UUID format)
         response = await api_client.get("/sessions/00000000-0000-0000-0000-000000000000/state")
         if response.status_code != 404:
@@ -233,6 +240,8 @@ class TestDockerIntegration:
     @pytest.mark.asyncio
     async def test_concurrent_requests(self, api_client):
         """Test handling concurrent requests."""
+        await self._check_service_available(api_client, "API")
+        
         # Create multiple sessions concurrently
         tasks = []
         for i in range(5):
@@ -291,7 +300,6 @@ class TestDockerServices:
 
 if __name__ == "__main__":
     # Run basic health checks
-    import asyncio
     
     async def run_basic_tests():
         print("🧪 Running basic Docker integration tests...")
