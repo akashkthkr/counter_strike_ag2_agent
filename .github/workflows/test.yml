@@ -146,9 +146,34 @@ jobs:
           sed -i 's/your-openai-api-key-here/${{ secrets.OPENAI_API_KEY }}/g' .env
         fi
         
-        # Start API and Agent services for integration tests
-        echo "Starting API and Agent services..."
-        docker compose up -d api agent_service
+        # Create logs directory
+        mkdir -p logs
+        
+        # Build the Docker images first
+        echo "Building Docker images..."
+        docker compose build api agent_service
+        
+        # Start API service manually (connecting to GitHub Actions services)
+        echo "Starting API service..."
+        docker run -d --name cs_api_test \
+          --network host \
+          -e DATABASE_URL=postgresql://cs_user:cs_password@localhost:5432/counter_strike_db_test \
+          -e CHROMA_URL=http://localhost:8000 \
+          -e ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY} \
+          -e OPENAI_API_KEY=${OPENAI_API_KEY} \
+          -v $(pwd)/logs:/app/logs \
+          counter_strike_ag2_agent-api:latest
+          
+        # Start Agent service manually (connecting to GitHub Actions services)
+        echo "Starting Agent service..."
+        docker run -d --name cs_agents_test \
+          --network host \
+          -e DATABASE_URL=postgresql://cs_user:cs_password@localhost:5432/counter_strike_db_test \
+          -e CHROMA_URL=http://localhost:8000 \
+          -e ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY} \
+          -e OPENAI_API_KEY=${OPENAI_API_KEY} \
+          -v $(pwd)/logs:/app/logs \
+          counter_strike_ag2_agent-agent_service:latest
         
         # Wait for services to be ready
         echo "Waiting for API service..."
@@ -175,7 +200,9 @@ jobs:
         python -m pytest tests/test_docker_integration.py -v --cov=counter_strike_ag2_agent --cov-append
         
         # Clean up services
-        docker compose down api agent_service
+        echo "Cleaning up test containers..."
+        docker stop cs_api_test cs_agents_test || true
+        docker rm cs_api_test cs_agents_test || true
       env:
         DATABASE_URL: postgresql://cs_user:cs_password@localhost:5432/counter_strike_db_test
         CHROMA_URL: http://localhost:8000
