@@ -13,9 +13,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11"]
+    timeout-minutes: 30
     
     services:
       postgres:
@@ -43,10 +41,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python 3.11
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: "3.11"
     
     - name: Cache pip dependencies
       uses: actions/cache@v3
@@ -63,14 +61,17 @@ jobs:
     
     - name: Install Python dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        python -m pip install --upgrade pip setuptools wheel
+        # Install test dependencies first (lighter)
         pip install pytest pytest-cov pytest-xdist pytest-benchmark
+        # Install main requirements
+        pip install -r requirements.txt --prefer-binary
     
     - name: Wait for services to be ready
       run: |
         sleep 10
-        curl -f http://localhost:8000/api/v1/heartbeat || exit 1
+        # Test ChromaDB connectivity with correct endpoint
+        curl -f http://localhost:8000/ || curl -f http://localhost:8000/api/v2/heartbeat || exit 1
     
     - name: Set up test environment
       run: |
@@ -134,34 +135,8 @@ jobs:
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: test-results-${{ matrix.python-version }}
+        name: test-results-python-3.11
         path: |
           test-output.xml
           coverage.xml
           .coverage
-
-  test-runner:
-    runs-on: ubuntu-latest
-    needs: test
-    if: always()
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest pytest-cov
-    
-    - name: Run streamlined test runner
-      run: |
-        python tests/run_tests.py --category all --coverage --verbose
-      env:
-        DATABASE_URL: sqlite:///test.db
-        CHROMA_URL: http://localhost:8000

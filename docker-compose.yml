@@ -34,12 +34,12 @@ services:
       - CHROMA_SERVER_HOST=0.0.0.0
       - CHROMA_SERVER_HTTP_PORT=8000
       - PERSIST_DIRECTORY=/data
-    # healthcheck:
-    #   test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v2/heartbeat || exit 1"]
-    #   interval: 15s
-    #   timeout: 10s
-    #   retries: 10
-    #   start_period: 30s
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
     networks:
       - cs_network
 
@@ -60,7 +60,7 @@ services:
       postgres:
         condition: service_healthy
       chromadb:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ./logs:/app/logs
     networks:
@@ -86,7 +86,7 @@ services:
       postgres:
         condition: service_healthy
       chromadb:
-        condition: service_started
+        condition: service_healthy
       api:
         condition: service_started
     volumes:

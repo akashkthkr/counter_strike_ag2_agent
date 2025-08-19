@@ -75,7 +75,7 @@ echo "⏳ Waiting for databases to be ready..."
 sleep 10
 
 echo "🤖 Starting API and Agent services..."
-docker compose up -d api celery_worker celery_beat agent_service
+docker compose up -d api agent_service
 
 echo "⏳ Waiting for services to be ready..."
 sleep 5

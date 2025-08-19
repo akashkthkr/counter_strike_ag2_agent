@@ -53,7 +53,8 @@ jobs:
     
     - name: Test ChromaDB connectivity
       run: |
-        curl -f http://localhost:8000/api/v1/heartbeat
+        # Try the root endpoint first, then try v2 heartbeat
+        curl -f http://localhost:8000/ || curl -f http://localhost:8000/api/v2/heartbeat
     
     - name: Start API and Agent services
       run: |
