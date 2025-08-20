@@ -162,6 +162,17 @@ This project uses some pretty cool tech:
 - **Jinja2** for dynamic HTML templating
 - **Web Audio API** for immersive sound effects
 
+### AG2 Agent Integration
+
+The project leverages several key AG2 agents to create a rich, interactive experience:
+
+- **`AssistantAgent`**: Powers the core tactical AI, providing strategic advice based on game state.
+- **`UserProxyAgent`**: Manages human-in-the-loop interactions, seamlessly integrating player commands with the AI system.
+- **`GroupChatManager`**: Orchestrates conversations between multiple agents, enabling collaborative problem-solving for complex scenarios.
+- **`CriticAgent` (contrib)**: Evaluates player-proposed strategies, offering critical feedback to improve tactical decisions.
+- **`QuantifierAgent` (contrib)**: Ranks multiple tactical options, helping players choose the most effective course of action.
+- **`SocietyOfMindAgent` (contrib)**: Simulates a team of experts debating a problem, providing diverse perspectives on challenging situations.
+
 The AI agents actually understand Counter-Strike tactics because they're trained on strategy guides and have specialized prompts. They're not just generic chatbots - they know the difference between an eco round and a force buy! The vector knowledge base allows for semantic search, so you can ask "What should I do in a 2v4 clutch?" and get relevant tactical advice.
 
 ## License
