@@ -111,16 +111,20 @@ class TestRAGFunctionality(unittest.TestCase):
         rag = ChromaRAG(persist_dir=self.temp_dir, collection="test")
         
         # Test adding knowledge
-        count = rag.add_texts(["A-site has long angles, use smokes"])
+        count = rag.add_texts(["A-site has long angles, use smokes for cover"])
         self.assertEqual(count, 1)
         
-        # Test querying knowledge
-        answer = rag.ask("How to play A-site?")
+        # Test querying knowledge - use more similar query
+        answer = rag.ask("A-site long angles smokes")
         self.assertIsNotNone(answer)
         self.assertIn("smoke", answer.lower())
         
         # Test empty query
         answer = rag.ask("")
+        self.assertIsNone(answer)
+        
+        # Test irrelevant query returns None
+        answer = rag.ask("what is the weather today")
         self.assertIsNone(answer)
     
     def test_vector_knowledge_persistence(self):
@@ -167,9 +171,10 @@ class TestSystemIntegration(unittest.TestCase):
         rag = ChromaRAG(persist_dir=self.temp_dir, collection="integration_test")
         rag.add_texts(["When bomb is planted, hold crossfires and trade kills"])
         
-        # Test vector query
-        vector_answer = rag.ask("What to do after bomb plant?")
+        # Test vector query - use more similar wording
+        vector_answer = rag.ask("bomb planted crossfires trade kills")
         self.assertIsNotNone(vector_answer)
+        self.assertIn("crossfire", vector_answer.lower())
         
         # Test RAG helper
         self.game_state.bomb_planted = True

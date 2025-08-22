@@ -231,11 +231,10 @@ class TestDockerIntegration:
         }
         
         response = await agent_client.post("/process", json=request_data)
-        # The agent service returns 200 with success=False for invalid agent types
-        assert response.status_code == 200
+        assert response.status_code == 200  # Structured error response
         data = response.json()
         assert data["success"] == False
-        assert "Unknown agent type" in data.get("error", "")
+        assert "Unknown agent type" in data["error"]
     
     @pytest.mark.asyncio
     async def test_concurrent_requests(self, api_client):

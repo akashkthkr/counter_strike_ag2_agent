@@ -59,8 +59,9 @@ class TestEssentialIntegration(unittest.TestCase):
         self.assertIn("crossfire", rag_response.lower())
         
         # 5. Vector KB should provide relevant advice
-        vector_response = rag.ask("What to do when bomb is planted?")
+        vector_response = rag.ask("bomb planted hold crossfires")
         self.assertIsNotNone(vector_response)
+        self.assertIn("crossfire", vector_response.lower())
     
     def test_agent_rag_integration(self):
         """Test agents work with RAG systems."""

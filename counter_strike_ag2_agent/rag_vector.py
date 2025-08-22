@@ -42,7 +42,7 @@ class ChromaRAG:
         chunks = [p.strip() for p in text.split("\n\n") if p.strip()]
         return self.add_texts(chunks)
 
-    def ask(self, question: str) -> Optional[str]:
+    def ask(self, question: str, min_similarity: float = 0.7) -> Optional[str]:
         question = question.strip()
         if not question:
             return None
@@ -53,16 +53,57 @@ class ChromaRAG:
             if "a-site" in ql or "a site" in ql:
                 prefer = "a-site"
             res = self.col.query(query_texts=[question], n_results=3)
-            docs = [d for d in (res.get("documents") or [[]])[0] if d]
+            docs = res.get("documents", [[]])[0] if res.get("documents") else []
+            distances = res.get("distances", [[]])[0] if res.get("distances") else []
+            
             if not docs:
                 return None
+                
+            # Filter by relevance threshold (lower distance = higher similarity)
+            # Convert distance to similarity: similarity = 1 - (distance / max_distance)
+            relevant_docs = []
+            for i, (doc, distance) in enumerate(zip(docs, distances)):
+                if doc:
+                    # For L2 distance, typical range is 0-2, so we normalize
+                    similarity = max(0, 1 - (distance / 2.0))
+                    if similarity >= min_similarity:
+                        relevant_docs.append((doc, similarity))
+            
+            if not relevant_docs:
+                return None  # No relevant documents found
+                
+            # Sort by similarity (highest first)
+            relevant_docs.sort(key=lambda x: x[1], reverse=True)
+            
+            # Apply test bias if present
             if prefer:
-                for d in docs:
-                    if prefer in d.lower():
-                        return d
-            return docs[0]
+                for doc, _ in relevant_docs:
+                    if prefer in doc.lower():
+                        return doc
+                        
+            return relevant_docs[0][0]  # Return most relevant document
         except Exception:
             return None
+
+    def ask_with_scores(self, question: str, min_similarity: float = 0.7) -> list[tuple[str, float]]:
+        """Return documents with their similarity scores for debugging."""
+        question = question.strip()
+        if not question:
+            return []
+        try:
+            res = self.col.query(query_texts=[question], n_results=3)
+            docs = res.get("documents", [[]])[0] if res.get("documents") else []
+            distances = res.get("distances", [[]])[0] if res.get("distances") else []
+            
+            results = []
+            for doc, distance in zip(docs, distances):
+                if doc:
+                    similarity = max(0, 1 - (distance / 2.0))
+                    results.append((doc, similarity))
+                    
+            return sorted(results, key=lambda x: x[1], reverse=True)
+        except Exception:
+            return []
 
     def clear(self) -> None:
         """Remove all knowledge and recreate the empty collection."""
