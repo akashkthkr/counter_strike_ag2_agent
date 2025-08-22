@@ -14,23 +14,41 @@ jobs:
 
       - name: Create .env file for preview
         run: |
-          cp env.example .env
-          # Use real API keys if available, otherwise use test keys
-          if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
-            sed -i 's/your-anthropic-api-key-here/${{ secrets.ANTHROPIC_API_KEY }}/g' .env
-          else
-            sed -i 's/your-anthropic-api-key-here/test-key-anthropic/g' .env
-          fi
-          if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
-            sed -i 's/your-openai-api-key-here/${{ secrets.OPENAI_API_KEY }}/g' .env
-          else
-            sed -i 's/your-openai-api-key-here/test-key-openai/g' .env
-          fi
+          set -eu
+          anth="${{ secrets.ANTHROPIC_API_KEY }}"
+          openai="${{ secrets.OPENAI_API_KEY }}"
+
+          # Fallbacks if a secret is missing
+          : "${anth:=test-key-anthropic}"
+          : "${openai:=test-key-openai}"
+
+          # Mask secrets in logs (defense in depth)
+          echo "::add-mask::${anth}"
+          echo "::add-mask::${openai}"
+
+          # Generate the .env expected by docker-compose and app
+          {
+            echo "ANTHROPIC_API_KEY=${anth}"
+            echo "OPENAI_API_KEY=${openai}"
+            echo "OAI_CONFIG_LIST='[{\"model\":\"claude-3-5-sonnet-20240620\",\"api_type\":\"anthropic\",\"api_key\":\"${anth}\"}]'"
+          } > .env
+
+          # Helpful sanity check without leaking values
+          echo "📝 Created .env with the following keys (values redacted):"
+          grep -E '^(ANTHROPIC_API_KEY|OPENAI_API_KEY|OAI_CONFIG_LIST)=' .env | sed 's/=.*$/=<redacted>/'
 
       - name: Build & start stack
         run: |
           docker compose build
           docker compose up -d
+
+      - name: Verify container environment (redacted)
+        run: |
+          echo "🔍 Verifying environment variables in containers..."
+          for svc in api agent_service; do
+            echo ">>> Checking $svc container:"
+            docker compose exec -T "$svc" sh -c 'env | grep -E "^(ANTHROPIC_API_KEY|OPENAI_API_KEY)=" | sed "s/=.*$/=<redacted>/"' || echo "  ⚠️  Could not verify env vars in $svc"
+          done
 
       - name: Wait for services to be healthy
         run: |
@@ -45,7 +63,10 @@ jobs:
             if [ $i -eq 90 ]; then
               echo "❌ API did not become healthy in time" >&2
               docker compose ps
+              echo "--- API logs ---"
               docker compose logs api
+              echo "--- Checking if API has environment variables ---"
+              docker compose exec -T api sh -c 'env | grep -E "^(ANTHROPIC_API_KEY|OPENAI_API_KEY)=" | sed "s/=.*$/=<redacted>/"' || true
               exit 1
             fi
             sleep 1
