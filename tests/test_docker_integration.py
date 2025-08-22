@@ -224,6 +224,9 @@ class TestDockerIntegration:
         }
         
         response = await agent_client.post("/process", json=request_data)
+        if response.status_code != 400:
+            print(f"Invalid agent test - Status: {response.status_code}")
+            print(f"Response: {response.text}")
         assert response.status_code == 400
     
     @pytest.mark.asyncio
